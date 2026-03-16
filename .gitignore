@@ -1,0 +1,9 @@
+node_modules
+.env
+dist
+.DS_Store
+*.pyc
+__pycache__
+.tmp
+credentials.json
+token.json

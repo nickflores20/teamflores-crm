@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-gold: #C6A76F;
+  --color-navy: #1A3E61;
+  --color-ink: #1A202C;
+  --color-ink-secondary: #4A5568;
+  --color-border: #E2E8F0;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: #F8F9FA;
+  color: #1A202C;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* EB Garamond for page/section headings only */
+h1, h2 {
+  font-family: 'EB Garamond', Georgia, serif;
+}
+
+::selection {
+  background-color: rgba(198, 167, 111, 0.25);
+  color: #1A202C;
+}
+
+/* Light scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}
+
+/* Sidebar scrollbar stays dark */
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+}
+
+/* Shimmer for light skeleton loaders */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #F1F3F5 0px,
+    #E2E8F0 200px,
+    #F1F3F5 400px
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Kanban horizontal scroll */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E0 transparent;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 3px;
+}
+
+/* Gold left accent — used for selected/unread items */
+.gold-accent-left {
+  border-left: 3px solid #C6A76F;
+}
+
+/* Remove iOS input zoom */
+@media screen and (max-width: 767px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="date"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Page fade transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+}
+.tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1A202C;
+  color: white;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 999;
+}
+.tooltip:hover::after {
+  opacity: 1;
+}
