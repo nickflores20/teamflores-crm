@@ -155,6 +155,32 @@ export default function Settings() {
   const [pingStatus, setPingStatus] = useState(null)
   const [lastSynced] = useState(() => new Date().toLocaleString())
 
+  // AI endpoint test
+  const [aiTestStatus, setAiTestStatus] = useState(null)
+  const [aiTestResult, setAiTestResult] = useState('')
+
+  const testAiEndpoint = async () => {
+    setAiTestStatus('pending')
+    setAiTestResult('')
+    try {
+      const res = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadData: { firstName: 'Test', lastName: 'Lead', loanType: 'Purchase', rowNumber: 0 },
+          timelineEvents: [],
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Request failed: ' + res.status)
+      setAiTestStatus('ok')
+      setAiTestResult(data.summary)
+    } catch (e) {
+      setAiTestStatus('error')
+      setAiTestResult(e.message)
+    }
+  }
+
   const pingApi = async () => {
     setPingStatus('pending')
     try {
@@ -331,6 +357,40 @@ export default function Settings() {
                   />
                 </div>
               </div>
+            </div>
+          )}
+        </Section>
+
+        {/* ── AI Summary ── */}
+        <Section title="AI Smart Summary" icon="✨">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${aiTestStatus === 'ok' ? 'bg-green-500' : aiTestStatus === 'error' ? 'bg-red-500' : 'bg-gray-300'}`} />
+                <p className="text-sm font-medium text-ink">Serverless Endpoint</p>
+              </div>
+              <p className="text-xs text-ink-muted font-mono">/api/summarize</p>
+              <p className="text-xs text-ink-muted mt-0.5">Calls Claude via Vercel function — API key stored server-side</p>
+            </div>
+            <button
+              onClick={testAiEndpoint}
+              disabled={aiTestStatus === 'pending'}
+              className={[
+                'flex-shrink-0 px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors',
+                aiTestStatus === 'ok'    ? 'border-green-500/40 text-green-700 bg-green-50' :
+                aiTestStatus === 'error' ? 'border-red-500/40 text-red-600 bg-red-50' :
+                'border-surface-border text-ink-secondary bg-white hover:bg-surface-secondary',
+              ].join(' ')}
+            >
+              {aiTestStatus === 'pending' ? 'Testing…' :
+               aiTestStatus === 'ok'      ? '✓ Working' :
+               aiTestStatus === 'error'   ? '✗ Error' :
+               'Test Endpoint'}
+            </button>
+          </div>
+          {aiTestResult && (
+            <div className={`rounded-xl p-3 border text-xs leading-relaxed ${aiTestStatus === 'ok' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+              {aiTestResult}
             </div>
           )}
         </Section>

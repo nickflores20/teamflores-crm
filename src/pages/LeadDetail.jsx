@@ -72,7 +72,7 @@ function AISummaryBanner({ lead }) {
         body: JSON.stringify({ leadData: lead, timelineEvents: events }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'API error')
+      if (!res.ok) throw new Error(data.error || 'Request failed: ' + res.status)
       const result = { text: data.summary, generatedAt: new Date().toISOString() }
       setSummary(result)
       setShowBanner(true)
