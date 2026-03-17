@@ -83,6 +83,46 @@ export default function Reports() {
     })
   }, [leads, range])
 
+  // ─── Speed to Lead ────────────────────────────────────────────────────────
+  const speedToLeadHours = useMemo(() => {
+    const contactedLeads = filteredLeads.filter(l =>
+      ['Contacted', 'Qualified', 'Closed', 'Lost'].includes(l['Status'])
+    )
+    const times = contactedLeads.map(lead => {
+      try {
+        const events = JSON.parse(localStorage.getItem(`crm_timeline_${lead.rowNumber}`) || '[]')
+        const firstContact = events
+          .filter(e => ['email_sent', 'call', 'text_sent'].includes(e.type))
+          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))[0]
+        if (!firstContact) return null
+        const submittedAt = lead['Submitted At'] || lead['Date']
+        if (!submittedAt) return null
+        const diffMs = new Date(firstContact.timestamp).getTime() - new Date(submittedAt).getTime()
+        if (diffMs < 0) return null
+        return diffMs / (1000 * 60 * 60)
+      } catch { return null }
+    }).filter(t => t !== null)
+    if (times.length === 0) return null
+    return times.reduce((a, b) => a + b, 0) / times.length
+  }, [filteredLeads])
+
+  function formatSpeedToLead(hours) {
+    if (hours === null) return 'No data'
+    if (hours < 1) {
+      return `${Math.round(hours * 60)}m`
+    }
+    const h = Math.floor(hours)
+    const m = Math.round((hours - h) * 60)
+    return m > 0 ? `${h}h ${m}m` : `${h}h`
+  }
+
+  function speedTrend(hours) {
+    if (hours === null) return 2
+    if (hours < 1) return 0   // green — excellent
+    if (hours <= 4) return 2  // neutral — good
+    return 1                  // red — needs improvement
+  }
+
   const totalLeads   = filteredLeads.length
   const closedLeads  = filteredLeads.filter(l => l['Status'] === 'Closed').length
   const activeLeads  = filteredLeads.filter(l => !['Closed', 'Lost'].includes(l['Status'])).length
@@ -117,13 +157,21 @@ export default function Reports() {
       <div className="flex-1 px-4 lg:px-6 py-6 space-y-6">
 
         {/* Hero stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           <StatCard label="Total Leads"    value={totalLeads}              color="text-ink"        trend={2} delay={0}    sub="in period" />
           <StatCard label="Active Deals"   value={activeLeads}             color="text-blue-600"   trend={0} delay={0.04} sub="in pipeline" />
           <StatCard label="Closed"         value={closedLeads}             color="text-green-600"  trend={0} delay={0.08} sub="won" />
           <StatCard label="Win Rate"       value={`${winRate}%`}           color="text-gold"       trend={winRate >= 20 ? 0 : 1} delay={0.12} sub={`${lostLeads} lost`} />
           <StatCard label="Pipeline Value" value={formatCurrency(pipelineVal)} color="text-navy-800"  trend={0} delay={0.16} sub="active" />
           <StatCard label="Avg Deal Size"  value={formatCurrency(avgPrice)} color="text-ink"       trend={2} delay={0.20} sub="per lead" />
+          <StatCard
+            label="Speed to Lead"
+            value={formatSpeedToLead(speedToLeadHours)}
+            color={speedToLeadHours === null ? 'text-ink-muted' : speedToLeadHours < 1 ? 'text-green-600' : speedToLeadHours <= 4 ? 'text-gold' : 'text-red-500'}
+            trend={speedTrend(speedToLeadHours)}
+            delay={0.24}
+            sub={speedToLeadHours === null ? 'no contacts yet' : speedToLeadHours < 1 ? 'excellent' : speedToLeadHours <= 4 ? 'good' : 'needs improvement'}
+          />
         </div>
 
         {/* Charts grid */}

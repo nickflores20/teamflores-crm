@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useLeads } from '../hooks/useLeads.js'
+import { useLeadsContext } from '../context/LeadsContext.jsx'
+import { useTasksContext } from '../context/TasksContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import LeadTable from '../components/leads/LeadTable.jsx'
 import LeadFilters from '../components/leads/LeadFilters.jsx'
@@ -18,6 +20,31 @@ const DEFAULT_FILTERS = {
   dateTo: '',
 }
 
+// ─── Smart list definitions ────────────────────────────────────────────────
+const SMART_LISTS = [
+  { key: 'new',        label: 'New Leads',           icon: '⚡', color: '#C6A76F' },
+  { key: 'noContact',  label: 'No Contact 3+ Days',  icon: '🔔', color: '#EF4444' },
+  { key: 'hot',        label: 'Hot Leads',           icon: '🔥', color: '#F97316' },
+  { key: 'closing',    label: 'Closing This Month',  icon: '🏆', color: '#22C55E' },
+  { key: 'followUp',   label: 'Follow Up Today',     icon: '📋', color: '#3B82F6' },
+  { key: 'active',     label: 'All Active',          icon: '✓',  color: '#1A3E61' },
+]
+
+function getNoContactIds(leads) {
+  const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000
+  return leads
+    .filter(l => l['Status'] === 'Contacted')
+    .filter(l => {
+      try {
+        const events = JSON.parse(localStorage.getItem(`crm_timeline_${l.rowNumber}`) || '[]')
+        if (events.length === 0) return true
+        const last = events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
+        return new Date(last.timestamp).getTime() < cutoff
+      } catch { return true }
+    })
+    .map(l => l.rowNumber)
+}
+
 export default function People() {
   const [filters, setFilters]         = useState(DEFAULT_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
@@ -27,13 +54,77 @@ export default function People() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [activeSmartList, setActiveSmartList] = useState(null)
+  const [smartOverrideIds, setSmartOverrideIds] = useState(null)
 
   const { addToast } = useToast()
+  const { tasks }    = useTasksContext()
+  const { leads: allLeadsRaw } = useLeadsContext()
 
   const { leads, allFilteredLeads, totalCount, totalPages, loading, error, setLeadStatus } = useLeads({
     searchQuery, ...filters, sortField, sortDir, page, pageSize: 25,
   })
   const { allFilteredLeads: allLeads } = useLeads({})
+
+  // ─── Smart list counts ───────────────────────────────────────────────────
+  const smartCounts = useMemo(() => {
+    const today = todayISO()
+    return {
+      new:       allLeadsRaw.filter(l => l['Status'] === 'New').length,
+      noContact: getNoContactIds(allLeadsRaw).length,
+      hot:       allLeadsRaw.filter(l => l['Status'] === 'Qualified').length,
+      closing:   allLeadsRaw.filter(l => l['Status'] === 'Closed').length,
+      followUp:  tasks.filter(t => !t.completed && t.dueDate === today && t.linkedLeadId).length,
+      active:    allLeadsRaw.filter(l => l['Status'] !== 'Lost').length,
+    }
+  }, [allLeadsRaw, tasks])
+
+  // ─── Apply smart list filter ─────────────────────────────────────────────
+  const handleSmartList = (key) => {
+    if (activeSmartList === key) {
+      setActiveSmartList(null)
+      setSmartOverrideIds(null)
+      setFilters(DEFAULT_FILTERS)
+      setPage(1)
+      return
+    }
+    setActiveSmartList(key)
+    setSmartOverrideIds(null)
+    setPage(1)
+
+    if (key === 'new') {
+      setFilters({ ...DEFAULT_FILTERS, statusFilter: ['New'] })
+    } else if (key === 'noContact') {
+      const ids = getNoContactIds(allLeadsRaw)
+      setSmartOverrideIds(ids)
+      setFilters(DEFAULT_FILTERS)
+    } else if (key === 'hot') {
+      setFilters({ ...DEFAULT_FILTERS, statusFilter: ['Qualified'] })
+    } else if (key === 'closing') {
+      setFilters({ ...DEFAULT_FILTERS, statusFilter: ['Closed'] })
+    } else if (key === 'followUp') {
+      const today = todayISO()
+      const ids = [...new Set(
+        tasks
+          .filter(t => !t.completed && t.dueDate === today && t.linkedLeadId)
+          .map(t => t.linkedLeadId)
+      )]
+      setSmartOverrideIds(ids)
+      setFilters(DEFAULT_FILTERS)
+    } else if (key === 'active') {
+      setFilters({ ...DEFAULT_FILTERS, statusFilter: ['New', 'Contacted', 'Qualified'] })
+    }
+  }
+
+  // If smartOverrideIds is set, filter allLeadsRaw by those IDs directly
+  const overrideLeads = useMemo(() => {
+    if (!smartOverrideIds) return null
+    return allLeadsRaw.filter(l => smartOverrideIds.includes(l.rowNumber))
+  }, [smartOverrideIds, allLeadsRaw])
+
+  const displayLeads = overrideLeads ?? leads
+  const displayTotal = overrideLeads ? overrideLeads.length : totalCount
+  const displayPages = overrideLeads ? 1 : totalPages
 
   const handleSort = useCallback((field) => {
     setSortField(prev => {
@@ -67,7 +158,12 @@ export default function People() {
   }
   const handleBulkDelete    = () => setDeleteConfirm(true)
   const confirmDelete       = () => { addToast({ type: 'info', message: 'Delete coming soon.' }); setDeleteConfirm(false); setSelectedIds([]) }
-  const handleFiltersChange = (f) => { setFilters(f); setPage(1) }
+  const handleFiltersChange = (f) => {
+    setFilters(f)
+    setPage(1)
+    setActiveSmartList(null)
+    setSmartOverrideIds(null)
+  }
 
   const activeFilterCount = Object.values(filters).flat().filter(Boolean).length
 
@@ -96,7 +192,12 @@ export default function People() {
         </div>
 
         <span className="text-sm text-ink-muted whitespace-nowrap">
-          {totalCount} {totalCount === 1 ? 'person' : 'people'}
+          {displayTotal} {displayTotal === 1 ? 'person' : 'people'}
+          {activeSmartList && (
+            <span className="ml-1 text-xs text-gold font-medium">
+              · {SMART_LISTS.find(s => s.key === activeSmartList)?.label}
+            </span>
+          )}
         </span>
 
         <div className="flex items-center gap-2 ml-auto">
@@ -124,6 +225,39 @@ export default function People() {
         </div>
       </div>
 
+      {/* ─── Smart Lists strip ──────────────────────────────────────────── */}
+      <div className="flex-shrink-0 bg-white border-b border-surface-border px-4 lg:px-6 py-2 flex gap-2 overflow-x-auto scrollbar-none">
+        {SMART_LISTS.map(list => {
+          const count = smartCounts[list.key]
+          const isActive = activeSmartList === list.key
+          return (
+            <button
+              key={list.key}
+              onClick={() => handleSmartList(list.key)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-colors flex-shrink-0"
+              style={isActive
+                ? { backgroundColor: list.color, borderColor: list.color, color: 'white' }
+                : { backgroundColor: 'white', borderColor: '#E2E8F0', color: '#475569' }
+              }
+            >
+              <span>{list.icon}</span>
+              <span>{list.label}</span>
+              {count > 0 && (
+                <span
+                  className="text-[10px] font-bold px-1.5 rounded-full"
+                  style={isActive
+                    ? { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
+                    : { backgroundColor: '#F1F5F9', color: '#64748B' }
+                  }
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {error && (
         <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
           {error}
@@ -133,7 +267,7 @@ export default function People() {
       {/* Table area */}
       <div className="flex-1 overflow-auto px-4 lg:px-6 py-4">
         <LeadTable
-          leads={leads}
+          leads={displayLeads}
           loading={loading}
           selectedIds={selectedIds}
           onSelectAll={handleSelectAll}
@@ -142,9 +276,9 @@ export default function People() {
           sortField={sortField}
           sortDir={sortDir}
           onStatusChange={handleStatusChange}
-          totalCount={totalCount}
-          page={page}
-          totalPages={totalPages}
+          totalCount={displayTotal}
+          page={overrideLeads ? 1 : page}
+          totalPages={displayPages}
           pageSize={25}
           onPageChange={setPage}
         />

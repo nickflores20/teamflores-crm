@@ -159,7 +159,10 @@ function getHeadline(event) {
     case 'text_received':
       return String(event.body || '').slice(0, 60) || 'Text message'
     case 'call': {
-      return event.duration ? `${event.duration} min call` : 'Call logged'
+      const parts = []
+      if (event.duration) parts.push(`${event.duration} min call`)
+      else parts.push('Call logged')
+      return parts.join(' · ')
     }
     case 'appointment': {
       const parts = [
@@ -200,17 +203,17 @@ export default function TimelineEvent({ event, onEdit, onDelete }) {
   const cfg    = TYPE_CFG[event.type] || TYPE_CFG.note
   const isNote = event.type === 'note'
   const body   = event.body || ''
+  const isText = event.type === 'text_sent' || event.type === 'text_received'
+  const isSentText = event.type === 'text_sent'
 
-  // Determine whether this card has a body section worth toggling
+  // Text messages always show body (as bubble), no toggle needed
   const hasExpandableBody =
     body.length > 0 &&
     event.type !== 'status_change' &&
-    event.type !== 'task_completed' &&
-    event.type !== 'text_sent' &&
-    event.type !== 'text_received'
+    event.type !== 'task_completed'
 
-  // Show toggle button when content is long OR always for certain types
   const needsToggle =
+    !isText &&
     hasExpandableBody &&
     (body.length > 100 ||
       event.type === 'lead_submitted' ||
@@ -255,35 +258,28 @@ export default function TimelineEvent({ event, onEdit, onDelete }) {
         >
           {/* Card header — always visible */}
           <div className="px-3 py-2.5">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <span
-                  className="text-[10px] font-bold uppercase tracking-wider"
-                  style={{ color: cfg.labelColor }}
+            {/* Type label + timestamp row */}
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider"
+                style={{ color: cfg.labelColor }}
+              >
+                {cfg.label}
+              </span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <time
+                  className="text-[10px] text-slate-400"
+                  title={formatDateTime(event.timestamp)}
+                  style={{ wordBreak: 'break-all' }}
                 >
-                  {cfg.label}
-                </span>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5 leading-snug">
-                  {getHeadline(event)}
-                </p>
-                {getSubInfo(event) && (
-                  <p className="text-xs text-slate-500 mt-0.5 truncate">{getSubInfo(event)}</p>
-                )}
-                {event.type === 'call' && event.outcome && (
-                  <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 ${CALL_OUTCOME_STYLES[event.outcome] || CALL_OUTCOME_STYLES['No Answer']}`}>
-                    {event.outcome}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0 ml-1">
-                <time className="text-[10px] text-slate-400 whitespace-nowrap" title={formatDateTime(event.timestamp)}>
                   {formatDateTime(event.timestamp)}
                 </time>
                 {needsToggle && (
                   <button
                     onClick={() => setExpanded((v) => !v)}
-                    className="p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                    className="p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
                     aria-label={expanded ? 'Collapse' : 'Expand'}
+                    style={{ minWidth: '20px', minHeight: '20px' }}
                   >
                     <svg
                       className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
@@ -298,106 +294,172 @@ export default function TimelineEvent({ event, onEdit, onDelete }) {
                 )}
               </div>
             </div>
+
+            {/* Headline */}
+            <p className="text-sm font-semibold text-slate-800 mt-0.5 leading-snug truncate">
+              {getHeadline(event)}
+            </p>
+
+            {/* Sub-info */}
+            {getSubInfo(event) && (
+              <p className="text-xs text-slate-500 mt-0.5 truncate">{getSubInfo(event)}</p>
+            )}
+
+            {/* Call: outcome badge + duration inline */}
+            {event.type === 'call' && (
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                {event.outcome && (
+                  <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${CALL_OUTCOME_STYLES[event.outcome] || CALL_OUTCOME_STYLES['No Answer']}`}>
+                    {event.outcome}
+                  </span>
+                )}
+                {event.duration && (
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {event.duration} min
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Expandable / always-shown body */}
-          <AnimatePresence initial={false}>
-            {(needsToggle ? expanded : hasExpandableBody) && (
-              <motion.div
-                key="body"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <div className="px-3 pb-3 pt-2.5 border-t border-slate-200/60">
-                  {editing ? (
-                    /* ── Inline edit (notes only) ───────────────────── */
-                    <div>
-                      <textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        rows={4}
-                        className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-md px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={handleSaveEdit}
-                          className="text-xs px-3 py-1.5 rounded-md font-semibold text-white transition-opacity"
-                          style={{ backgroundColor: '#C6A76F' }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => { setEditing(false); setEditText(event.body || '') }}
-                          className="text-xs px-3 py-1.5 rounded-md font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Read-only body ─────────────────────────────── */
-                    <>
-                      {event.type === 'lead_submitted' ? (
-                        /* Form answers rendered as key: value rows */
-                        <div className="space-y-1">
-                          {body.split('\n').filter(Boolean).map((line, i) => {
-                            const colon = line.indexOf(': ')
-                            if (colon === -1) return (
-                              <p key={i} className="text-xs text-slate-600">{line}</p>
-                            )
-                            return (
-                              <div key={i} className="flex gap-2 text-xs py-0.5">
-                                <span className="text-slate-400 min-w-[120px] flex-shrink-0 font-medium">
-                                  {line.slice(0, colon)}
-                                </span>
-                                <span className="text-slate-700">{line.slice(colon + 2)}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{body}</p>
-                      )}
-
-                      {/* Actions row */}
-                      <div className="flex gap-2 mt-3">
-                        {(event.type === 'email_sent' || event.type === 'email_received') && (
-                          <a
-                            href={`mailto:${event.type === 'email_received' ? event.from : (event.to || '')}?subject=${encodeURIComponent(`Re: ${event.subject || ''}`)}`}
-                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-semibold hover:bg-blue-100 transition-colors"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-                            </svg>
-                            Reply
-                          </a>
-                        )}
-                        {isNote && (
-                          <>
-                            <button
-                              onClick={() => setEditing(true)}
-                              className="text-xs px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => onDelete && onDelete(event.id)}
-                              className="text-xs px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 font-semibold hover:bg-red-100 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
+          {/* ── Text message: chat bubble (always shown, no toggle) ─────── */}
+          {isText && body && (
+            <div className="px-3 pb-3 pt-1 border-t border-slate-200/60">
+              <div className={`flex ${isSentText ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className="text-sm leading-relaxed px-3.5 py-2"
+                  style={{
+                    maxWidth: '85%',
+                    backgroundColor: isSentText ? '#C6A76F' : '#E2E8F0',
+                    color: isSentText ? 'white' : '#1E293B',
+                    borderRadius: isSentText
+                      ? '18px 18px 4px 18px'
+                      : '18px 18px 18px 4px',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {body}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+              <p className={`text-[10px] text-slate-400 mt-1 ${isSentText ? 'text-right' : 'text-left'}`}>
+                {isSentText
+                  ? (event.from ? `From: ${event.from}` : '')
+                  : (event.from ? event.from : '')}
+              </p>
+            </div>
+          )}
+
+          {/* Expandable / always-shown body (non-text types) */}
+          {!isText && (
+            <AnimatePresence initial={false}>
+              {(needsToggle ? expanded : hasExpandableBody) && (
+                <motion.div
+                  key="body"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-3 pb-3 pt-2.5 border-t border-slate-200/60">
+                    {editing ? (
+                      /* ── Inline edit ─────────────────────────────── */
+                      <div>
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={4}
+                          className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-md px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={handleSaveEdit}
+                            className="text-xs px-3 py-1.5 rounded-md font-semibold text-white transition-opacity"
+                            style={{ backgroundColor: '#C6A76F' }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => { setEditing(false); setEditText(event.body || '') }}
+                            className="text-xs px-3 py-1.5 rounded-md font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ── Read-only body ───────────────────────────── */
+                      <>
+                        {event.type === 'lead_submitted' ? (
+                          <div className="space-y-1">
+                            {body.split('\n').filter(Boolean).map((line, i) => {
+                              const colon = line.indexOf(': ')
+                              if (colon === -1) return (
+                                <p key={i} className="text-xs text-slate-600">{line}</p>
+                              )
+                              return (
+                                <div key={i} className="flex gap-2 text-xs py-0.5 flex-wrap sm:flex-nowrap">
+                                  <span className="text-slate-400 min-w-[100px] sm:min-w-[120px] flex-shrink-0 font-medium">
+                                    {line.slice(0, colon)}
+                                  </span>
+                                  <span className="text-slate-700">{line.slice(colon + 2)}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (event.type === 'email_sent' || event.type === 'email_received') ? (
+                          /* Email body: scrollable with max height */
+                          <div className="max-h-48 overflow-y-auto">
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{body}</p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{body}</p>
+                        )}
+
+                        {/* Call notes (below outcome badge, already in header) */}
+                        {event.type === 'call' && body && (
+                          <p className="text-sm text-slate-700 leading-relaxed mt-2 pt-2 border-t border-slate-100">{body}</p>
+                        )}
+
+                        {/* Actions row */}
+                        <div className="flex gap-2 mt-3 flex-wrap">
+                          {(event.type === 'email_sent' || event.type === 'email_received') && (
+                            <a
+                              href={`mailto:${event.type === 'email_received' ? event.from : (event.to || '')}?subject=${encodeURIComponent(`Re: ${event.subject || ''}`)}`}
+                              className="flex items-center justify-center gap-1.5 text-xs px-2.5 py-2 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-semibold hover:bg-blue-100 transition-colors w-full sm:w-auto"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                              </svg>
+                              Reply
+                            </a>
+                          )}
+                          {isNote && (
+                            <>
+                              <button
+                                onClick={() => setEditing(true)}
+                                className="text-xs px-2.5 py-2 rounded-md bg-white border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+                                style={{ minHeight: '36px', minWidth: '44px' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => onDelete && onDelete(event.id)}
+                                className="text-xs px-2.5 py-2 rounded-md bg-red-50 border border-red-200 text-red-600 font-semibold hover:bg-red-100 transition-colors"
+                                style={{ minHeight: '36px', minWidth: '44px' }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
       </div>
     </div>

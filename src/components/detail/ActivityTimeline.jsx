@@ -31,6 +31,35 @@ const FILTER_MAP = {
 const BASE_INPUT    = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 bg-white focus:outline-none transition-colors'
 const BASE_TEXTAREA = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-white resize-none focus:outline-none transition-colors'
 
+// ─── Tab icon SVGs ─────────────────────────────────────────────────────────
+const TAB_ICONS = {
+  note: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+    </svg>
+  ),
+  email: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  ),
+  text: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  ),
+  call: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+    </svg>
+  ),
+  appointment: (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+    </svg>
+  ),
+}
+
 // ─── Auto-generate full timeline events based on lead status ───────────────
 function generateTimelineForLead(lead) {
   const firstName        = lead['First Name']        || 'there'
@@ -57,7 +86,6 @@ function generateTimelineForLead(lead) {
     return d.toISOString()
   }
 
-  // Build form answers for lead_submitted body
   const formAnswers = [
     ['First Name',         firstName],
     ['Last Name',          lastName],
@@ -87,7 +115,6 @@ function generateTimelineForLead(lead) {
 
   const events = []
 
-  // ── Event 1: Lead Submitted (always) ──────────────────────────────────
   events.push({
     type:      'lead_submitted',
     timestamp: rawSubmittedAt,
@@ -97,7 +124,6 @@ function generateTimelineForLead(lead) {
   })
 
   if (['Contacted', 'Qualified', 'Closed', 'Lost'].includes(status)) {
-    // ── Event 2: Status → Contacted ─────────────────────────────────────
     events.push({
       type:      'status_change',
       timestamp: ts(1),
@@ -106,7 +132,6 @@ function generateTimelineForLead(lead) {
       to:        'Contacted',
     })
 
-    // ── Event 3: Email Sent by Nick ──────────────────────────────────────
     events.push({
       type:      'email_sent',
       timestamp: ts(1, 2),
@@ -129,7 +154,6 @@ Division Director | Sunnyhill Financial
 NMLS #422150`,
     })
 
-    // ── Event 4: Email Received from lead ────────────────────────────────
     events.push({
       type:      'email_received',
       timestamp: ts(2),
@@ -146,7 +170,6 @@ What rates are you seeing right now? And how long does the process typically tak
 ${firstName}`,
     })
 
-    // ── Event 5: Text Sent by Nick ───────────────────────────────────────
     events.push({
       type:      'text_sent',
       timestamp: ts(2, 1),
@@ -158,7 +181,6 @@ ${firstName}`,
   }
 
   if (['Qualified', 'Closed'].includes(status)) {
-    // ── Event 6: Call Logged ─────────────────────────────────────────────
     events.push({
       type:      'call',
       timestamp: ts(3),
@@ -169,7 +191,6 @@ ${firstName}`,
 `Spoke with ${firstName} for 15 minutes. They are looking to ${purchaseSituation} with a budget around ${purchasePrice}. Very motivated buyer. Credit score is ${creditScore}. Discussed loan options and they are very interested in moving forward. Sending loan estimate tomorrow.`,
     })
 
-    // ── Event 7: Status → Qualified ──────────────────────────────────────
     events.push({
       type:      'status_change',
       timestamp: ts(4),
@@ -178,7 +199,6 @@ ${firstName}`,
       to:        'Qualified',
     })
 
-    // ── Event 8: Note ────────────────────────────────────────────────────
     events.push({
       type:      'note',
       timestamp: ts(4, 2),
@@ -188,7 +208,6 @@ ${firstName}`,
   }
 
   if (status === 'Closed') {
-    // ── Event 9: Status → Closed ─────────────────────────────────────────
     events.push({
       type:      'status_change',
       timestamp: ts(14),
@@ -197,7 +216,6 @@ ${firstName}`,
       to:        'Closed',
     })
 
-    // ── Event 10: Closing Note ───────────────────────────────────────────
     events.push({
       type:      'note',
       timestamp: ts(14, 1),
@@ -209,40 +227,34 @@ ${firstName}`,
   return events
 }
 
-export default function ActivityTimeline({ lead }) {
+// ─── Main component ────────────────────────────────────────────────────────
+// mobile prop: when true, renders without h-full so parent can scroll
+export default function ActivityTimeline({ lead, mobile = false }) {
   const { addNote } = useLeadsContext()
   const { addToast } = useToast()
   const { events, addEvent, bulkAdd, editEvent, deleteEvent } = useTimeline(lead.rowNumber)
   const composerRef = useRef(null)
 
-  // ── Composer state ────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('note')
   const [saving,    setSaving]    = useState(false)
 
-  // Note
   const [noteText,     setNoteText]     = useState('')
-  // Email
   const [emailTo,      setEmailTo]      = useState(lead['Email'] || '')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody,    setEmailBody]    = useState('')
-  // Text
   const [textTo,   setTextTo]   = useState(lead['Phone'] || '')
   const [textBody, setTextBody] = useState('')
-  // Call
   const [callPhone,    setCallPhone]    = useState(lead['Phone'] || '')
   const [callDuration, setCallDuration] = useState('')
   const [callOutcome,  setCallOutcome]  = useState('')
   const [callNotes,    setCallNotes]    = useState('')
-  // Appointment
   const [apptType,  setApptType]  = useState('Phone Call')
   const [apptDate,  setApptDate]  = useState('')
   const [apptTime,  setApptTime]  = useState('')
   const [apptNotes, setApptNotes] = useState('')
 
-  // ── Filter state ──────────────────────────────────────────────────────────
   const [filter, setFilter] = useState('all')
 
-  // ── Auto-generate full timeline on first view if no events exist ──────────
   useEffect(() => {
     if (!lead.rowNumber) return
     const key = `crm_timeline_${lead.rowNumber}`
@@ -256,7 +268,6 @@ export default function ActivityTimeline({ lead }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Auto-create status_change when lead.Status updates ────────────────────
   const leadStatus  = lead['Status']
   const prevStatRef = useRef(null)
   useEffect(() => {
@@ -276,7 +287,6 @@ export default function ActivityTimeline({ lead }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadStatus])
 
-  // ── Sorted + filtered events ──────────────────────────────────────────────
   const sorted = useMemo(
     () => [...events].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
     [events]
@@ -286,7 +296,6 @@ export default function ActivityTimeline({ lead }) {
     [sorted, filter]
   )
 
-  // Badge counts per filter
   const counts = useMemo(() => {
     const c = { all: events.length }
     FILTERS.slice(1).forEach((f) => {
@@ -295,7 +304,6 @@ export default function ActivityTimeline({ lead }) {
     return c
   }, [events])
 
-  // ── Submit handlers ───────────────────────────────────────────────────────
   const handleNote = async () => {
     if (!noteText.trim()) return
     setSaving(true)
@@ -369,9 +377,16 @@ export default function ActivityTimeline({ lead }) {
     addToast({ type: 'success', message: 'Appointment scheduled' })
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const TABS = [
+    { key: 'note',        label: 'Note',  icon: TAB_ICONS.note },
+    { key: 'email',       label: 'Email', icon: TAB_ICONS.email },
+    { key: 'text',        label: 'Text',  icon: TAB_ICONS.text },
+    { key: 'call',        label: 'Call',  icon: TAB_ICONS.call },
+    { key: 'appointment', label: 'Appt',  icon: TAB_ICONS.appointment },
+  ]
+
   return (
-    <div className="flex flex-col h-full relative">
+    <div className={mobile ? 'flex flex-col relative' : 'flex flex-col h-full relative'}>
 
       {/* ═══════════════════════════════════════════════════════════════════
           COMPOSER
@@ -380,18 +395,12 @@ export default function ActivityTimeline({ lead }) {
 
         {/* Tab bar */}
         <div className="flex border-b border-slate-100">
-          {[
-            { key: 'note',        label: 'Note' },
-            { key: 'email',       label: 'Email' },
-            { key: 'text',        label: 'Text' },
-            { key: 'call',        label: 'Call' },
-            { key: 'appointment', label: 'Appt' },
-          ].map((t) => (
+          {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className={[
-                'flex-1 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors',
+                'flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors',
                 activeTab === t.key
                   ? '-mb-px border-b-2'
                   : 'text-slate-400 hover:text-slate-600',
@@ -402,13 +411,16 @@ export default function ActivityTimeline({ lead }) {
                   : {}
               }
             >
-              {t.label}
+              <span style={activeTab === t.key ? { color: '#C6A76F' } : {}}>
+                {t.icon}
+              </span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
         </div>
 
-        {/* Form area */}
-        <div className="px-4 py-3.5">
+        {/* Form area — extra bottom padding so keyboard doesn't hide inputs */}
+        <div className="px-4 py-3.5 pb-4">
 
           {/* ── NOTE ──────────────────────────────────────────────────── */}
           {activeTab === 'note' && (
@@ -418,14 +430,14 @@ export default function ActivityTimeline({ lead }) {
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write a note about this lead…"
                 rows={3}
-                className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-amber-200 focus:border-amber-300`}
+                className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-amber-200 focus:border-amber-300 text-[15px]`}
               />
-              <div className="flex justify-end mt-2">
+              <div className="mt-2">
                 <button
                   onClick={handleNote}
                   disabled={saving || !noteText.trim()}
-                  className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white transition-opacity disabled:opacity-40"
-                  style={{ backgroundColor: '#C6A76F' }}
+                  className="w-full sm:w-auto sm:px-4 px-4 text-sm font-semibold rounded-lg text-white transition-opacity disabled:opacity-40 flex items-center justify-center"
+                  style={{ backgroundColor: '#C6A76F', minHeight: '44px' }}
                 >
                   {saving ? 'Saving…' : 'Add Note'}
                 </button>
@@ -441,31 +453,30 @@ export default function ActivityTimeline({ lead }) {
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
                 placeholder="To:"
-                className={`${BASE_INPUT} focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
+                className={`${BASE_INPUT} text-[15px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
               />
               <input
                 type="text"
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
                 placeholder="Subject:"
-                className={`${BASE_INPUT} focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
+                className={`${BASE_INPUT} text-[15px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
               />
               <textarea
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
                 placeholder="Write your email…"
                 rows={4}
-                className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
+                className={`${BASE_TEXTAREA} text-[15px] focus:ring-2 focus:ring-blue-200 focus:border-blue-300`}
               />
-              <div className="flex justify-end">
-                <button
-                  onClick={handleEmail}
-                  disabled={!emailBody.trim()}
-                  className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors"
-                >
-                  Send Email
-                </button>
-              </div>
+              <button
+                onClick={handleEmail}
+                disabled={!emailBody.trim()}
+                className="w-full flex items-center justify-center text-sm font-semibold rounded-lg text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors"
+                style={{ minHeight: '44px' }}
+              >
+                Send Email
+              </button>
             </div>
           )}
 
@@ -477,7 +488,7 @@ export default function ActivityTimeline({ lead }) {
                 value={textTo}
                 onChange={(e) => setTextTo(e.target.value)}
                 placeholder="To:"
-                className={`${BASE_INPUT} focus:ring-2 focus:ring-green-200 focus:border-green-300`}
+                className={`${BASE_INPUT} text-[15px] focus:ring-2 focus:ring-green-200 focus:border-green-300`}
               />
               <div className="relative">
                 <textarea
@@ -485,7 +496,7 @@ export default function ActivityTimeline({ lead }) {
                   onChange={(e) => setTextBody(e.target.value.slice(0, 160))}
                   placeholder="Write your message…"
                   rows={3}
-                  className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-green-200 focus:border-green-300`}
+                  className={`${BASE_TEXTAREA} text-[15px] focus:ring-2 focus:ring-green-200 focus:border-green-300`}
                 />
                 <span
                   className={[
@@ -496,15 +507,14 @@ export default function ActivityTimeline({ lead }) {
                   {textBody.length}/160
                 </span>
               </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleText}
-                  disabled={!textBody.trim()}
-                  className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white bg-green-500 hover:bg-green-600 disabled:opacity-40 transition-colors"
-                >
-                  Send Text
-                </button>
-              </div>
+              <button
+                onClick={handleText}
+                disabled={!textBody.trim()}
+                className="w-full flex items-center justify-center text-sm font-semibold rounded-lg text-white bg-green-500 hover:bg-green-600 disabled:opacity-40 transition-colors"
+                style={{ minHeight: '44px' }}
+              >
+                Send Text
+              </button>
             </div>
           )}
 
@@ -516,7 +526,7 @@ export default function ActivityTimeline({ lead }) {
                 value={callPhone}
                 onChange={(e) => setCallPhone(e.target.value)}
                 placeholder="Called:"
-                className={`${BASE_INPUT} focus:ring-2 focus:ring-purple-200 focus:border-purple-300`}
+                className={`${BASE_INPUT} text-[15px] focus:ring-2 focus:ring-purple-200 focus:border-purple-300`}
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -525,12 +535,14 @@ export default function ActivityTimeline({ lead }) {
                   onChange={(e) => setCallDuration(e.target.value)}
                   placeholder="Duration (min)"
                   min="0"
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-colors"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-[15px] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-colors"
+                  style={{ minHeight: '44px' }}
                 />
                 <select
                   value={callOutcome}
                   onChange={(e) => setCallOutcome(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-colors"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-[15px] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-colors"
+                  style={{ minHeight: '44px' }}
                 >
                   <option value="">Outcome…</option>
                   <option value="Spoke with Lead">Spoke with Lead</option>
@@ -544,17 +556,16 @@ export default function ActivityTimeline({ lead }) {
                 onChange={(e) => setCallNotes(e.target.value)}
                 placeholder="Notes from call…"
                 rows={2}
-                className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-purple-200 focus:border-purple-300`}
+                className={`${BASE_TEXTAREA} text-[15px] focus:ring-2 focus:ring-purple-200 focus:border-purple-300`}
               />
-              <div className="flex justify-end">
-                <button
-                  onClick={handleCall}
-                  disabled={!callOutcome}
-                  className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white bg-purple-500 hover:bg-purple-600 disabled:opacity-40 transition-colors"
-                >
-                  Log Call
-                </button>
-              </div>
+              <button
+                onClick={handleCall}
+                disabled={!callOutcome}
+                className="w-full flex items-center justify-center text-sm font-semibold rounded-lg text-white bg-purple-500 hover:bg-purple-600 disabled:opacity-40 transition-colors"
+                style={{ minHeight: '44px' }}
+              >
+                Log Call
+              </button>
             </div>
           )}
 
@@ -564,7 +575,8 @@ export default function ActivityTimeline({ lead }) {
               <select
                 value={apptType}
                 onChange={(e) => setApptType(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[15px] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                style={{ minHeight: '44px' }}
               >
                 <option>Phone Call</option>
                 <option>In Person</option>
@@ -575,13 +587,15 @@ export default function ActivityTimeline({ lead }) {
                   type="date"
                   value={apptDate}
                   onChange={(e) => setApptDate(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-[15px] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                  style={{ minHeight: '44px' }}
                 />
                 <input
                   type="time"
                   value={apptTime}
                   onChange={(e) => setApptTime(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-[15px] bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-colors"
+                  style={{ minHeight: '44px' }}
                 />
               </div>
               <textarea
@@ -589,27 +603,25 @@ export default function ActivityTimeline({ lead }) {
                 onChange={(e) => setApptNotes(e.target.value)}
                 placeholder="Notes…"
                 rows={2}
-                className={`${BASE_TEXTAREA} focus:ring-2 focus:ring-amber-200 focus:border-amber-300`}
+                className={`${BASE_TEXTAREA} text-[15px] focus:ring-2 focus:ring-amber-200 focus:border-amber-300`}
               />
-              <div className="flex justify-end">
-                <button
-                  onClick={handleAppointment}
-                  disabled={!apptDate || !apptTime}
-                  className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white disabled:opacity-40 transition-colors"
-                  style={{ backgroundColor: '#C6A76F' }}
-                >
-                  Schedule
-                </button>
-              </div>
+              <button
+                onClick={handleAppointment}
+                disabled={!apptDate || !apptTime}
+                className="w-full flex items-center justify-center text-sm font-semibold rounded-lg text-white disabled:opacity-40 transition-colors"
+                style={{ backgroundColor: '#C6A76F', minHeight: '44px' }}
+              >
+                Schedule
+              </button>
             </div>
           )}
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          FILTER BAR
+          FILTER BAR — horizontally scrollable
       ══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-shrink-0 px-4 py-2.5 border-b border-slate-100 flex gap-1.5 overflow-x-auto bg-white">
+      <div className="flex-shrink-0 px-4 py-2.5 border-b border-slate-100 flex gap-1.5 overflow-x-auto scrollbar-none bg-white">
         {FILTERS.map((f) => (
           <button
             key={f.key}
@@ -640,7 +652,7 @@ export default function ActivityTimeline({ lead }) {
       {/* ═══════════════════════════════════════════════════════════════════
           TIMELINE
       ══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-20 md:pb-6">
+      <div className={mobile ? 'overflow-y-auto px-4 pt-5 pb-6 min-h-[300px]' : 'flex-1 overflow-y-auto px-4 pt-5 pb-20 md:pb-6'}>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
             <svg
@@ -675,19 +687,19 @@ export default function ActivityTimeline({ lead }) {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          MOBILE FAB — scroll to composer
-      ══════════════════════════════════════════════════════════════════════ */}
-      <button
-        onClick={() => composerRef.current?.scrollIntoView({ behavior: 'smooth' })}
-        className="md:hidden fixed bottom-20 right-4 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-white z-40 active:scale-95 transition-transform"
-        style={{ backgroundColor: '#C6A76F' }}
-        aria-label="Open composer"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
+      {/* FAB — only shown on mobile viewport when not in mobile prop mode */}
+      {!mobile && (
+        <button
+          onClick={() => composerRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          className="md:hidden fixed bottom-20 right-4 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-white z-40 active:scale-95 transition-transform"
+          style={{ backgroundColor: '#C6A76F' }}
+          aria-label="Open composer"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

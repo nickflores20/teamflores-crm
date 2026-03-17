@@ -14,9 +14,41 @@ export const rowVariants = {
   }),
 }
 
+const COMM_TYPES = ['email_sent', 'email_received', 'call', 'text_sent', 'text_received']
+
+function getLastCommInfo(rowNumber) {
+  try {
+    const events = JSON.parse(localStorage.getItem(`crm_timeline_${rowNumber}`) || '[]')
+    const comms = events.filter(e => COMM_TYPES.includes(e.type))
+    if (comms.length === 0) return null
+    const latest = comms.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
+    const diffMs = Date.now() - new Date(latest.timestamp).getTime()
+    const diffHours = diffMs / (1000 * 60 * 60)
+    const diffDays = diffHours / 24
+
+    let label, color
+    if (diffHours < 24) {
+      const h = Math.floor(diffHours)
+      const m = Math.floor((diffHours - h) * 60)
+      label = h > 0 ? `${h}h ago` : `${m}m ago`
+      color = '#16A34A' // green
+    } else if (diffDays <= 3) {
+      label = `${Math.floor(diffDays)}d ago`
+      color = '#C6A76F' // gold
+    } else {
+      label = `${Math.floor(diffDays)}d ago`
+      color = '#DC2626' // red
+    }
+    return { label, color }
+  } catch {
+    return null
+  }
+}
+
 export default function LeadRow({ lead, index, selected, onSelect, onStatusChange }) {
   const navigate  = useNavigate()
   const fullName  = getFullName(lead)
+  const lastComm  = getLastCommInfo(lead.rowNumber)
 
   return (
     <motion.tr
@@ -90,6 +122,15 @@ export default function LeadRow({ lead, index, selected, onSelect, onStatusChang
       {/* Date */}
       <td className="py-3 pr-4 text-sm text-ink-muted whitespace-nowrap hidden xl:table-cell">
         {formatDate(lead['Submitted At'] || lead['Date'])}
+      </td>
+
+      {/* Last Communication */}
+      <td className="py-3 pr-4 text-xs font-semibold whitespace-nowrap hidden xl:table-cell">
+        {lastComm ? (
+          <span style={{ color: lastComm.color }}>{lastComm.label}</span>
+        ) : (
+          <span className="text-ink-muted">Never</span>
+        )}
       </td>
 
       {/* Source */}
