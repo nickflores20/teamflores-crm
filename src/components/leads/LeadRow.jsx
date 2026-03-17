@@ -5,6 +5,7 @@ import Checkbox from '../ui/Checkbox.jsx'
 import StatusSelect from './StatusSelect.jsx'
 import { getFullName } from '../../api/mockData.js'
 import { formatDate, formatCurrency } from '../../lib/dateUtils.js'
+import { calculateLeadScore } from '../../lib/leadScore.js'
 
 export const rowVariants = {
   hidden:   { opacity: 0, y: 4 },
@@ -26,20 +27,20 @@ function getLastCommInfo(rowNumber) {
     const diffHours = diffMs / (1000 * 60 * 60)
     const diffDays = diffHours / 24
 
-    let label, color
+    let label, dotColor
     if (diffHours < 24) {
       const h = Math.floor(diffHours)
       const m = Math.floor((diffHours - h) * 60)
       label = h > 0 ? `${h}h ago` : `${m}m ago`
-      color = '#16A34A' // green
+      dotColor = '#16A34A' // green
     } else if (diffDays <= 3) {
       label = `${Math.floor(diffDays)}d ago`
-      color = '#C6A76F' // gold
+      dotColor = '#C6A76F' // gold
     } else {
       label = `${Math.floor(diffDays)}d ago`
-      color = '#DC2626' // red
+      dotColor = '#DC2626' // red
     }
-    return { label, color }
+    return { label, dotColor }
   } catch {
     return null
   }
@@ -49,6 +50,7 @@ export default function LeadRow({ lead, index, selected, onSelect, onStatusChang
   const navigate  = useNavigate()
   const fullName  = getFullName(lead)
   const lastComm  = getLastCommInfo(lead.rowNumber)
+  const score     = calculateLeadScore(lead)
 
   return (
     <motion.tr
@@ -127,10 +129,26 @@ export default function LeadRow({ lead, index, selected, onSelect, onStatusChang
       {/* Last Communication */}
       <td className="py-3 pr-4 text-xs font-semibold whitespace-nowrap hidden xl:table-cell">
         {lastComm ? (
-          <span style={{ color: lastComm.color }}>{lastComm.label}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: lastComm.dotColor }} />
+            <span style={{ color: lastComm.dotColor }}>{lastComm.label}</span>
+          </span>
         ) : (
-          <span className="text-ink-muted">Never</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-ink-muted/40" />
+            <span className="text-ink-muted">Never</span>
+          </span>
         )}
+      </td>
+
+      {/* Score */}
+      <td className="py-3 pr-4 hidden xl:table-cell">
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+          style={{ backgroundColor: score.bg, color: score.textColor }}
+        >
+          {score.score} · {score.label}
+        </span>
       </td>
 
       {/* Source */}

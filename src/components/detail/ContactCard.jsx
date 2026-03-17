@@ -2,9 +2,11 @@ import Avatar from '../ui/Avatar.jsx'
 import StatusSelect from '../leads/StatusSelect.jsx'
 import { getFullName } from '../../api/mockData.js'
 import { formatDate } from '../../lib/dateUtils.js'
+import { calculateLeadScore } from '../../lib/leadScore.js'
 
 export default function ContactCard({ lead, onStatusChange }) {
   const fullName = getFullName(lead)
+  const score    = calculateLeadScore(lead)
 
   return (
     <div className="bg-white rounded-card border border-surface-border shadow-card overflow-hidden">
@@ -18,6 +20,12 @@ export default function ContactCard({ lead, onStatusChange }) {
               {lead['Loan Type']}
             </span>
           )}
+          <span
+            className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+            style={{ backgroundColor: score.bg, color: score.textColor }}
+          >
+            {score.score} · {score.label}
+          </span>
         </div>
       </div>
 

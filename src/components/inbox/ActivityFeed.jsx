@@ -1,12 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import ActivityItem from './ActivityItem.jsx'
 import { getFullName } from '../../api/mockData.js'
 
+const VIEWED_KEY = 'tf_inbox_viewed'
 const TIME_FILTERS = [
   { id: 'all',   label: 'All Time' },
   { id: 'today', label: 'Today' },
   { id: 'week',  label: 'This Week' },
 ]
+
+// ─── Viewed set helpers ────────────────────────────────────────────────────
+function loadViewed() {
+  try { return new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]')) }
+  catch { return new Set() }
+}
+function saveViewed(set) {
+  try { localStorage.setItem(VIEWED_KEY, JSON.stringify([...set])) } catch {}
+}
 
 // ─── Scan localStorage for recent communication events ──────────────────────
 function getRecentCommEvents(types, cutoffMs) {
@@ -36,18 +46,17 @@ const COMM_CFG = {
 }
 
 export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter]   = useState('all')
+  const [viewed, setViewed]   = useState(loadViewed)
 
   const now = Date.now()
 
-  // Build time cutoff from filter
   const cutoff = useMemo(() => {
     if (filter === 'today') return now - 86_400_000
     if (filter === 'week')  return now - 604_800_000
     return 0
   }, [filter, now])
 
-  // Sorted leads within time window
   const filteredLeads = useMemo(() => {
     return [...leads]
       .sort((a, b) => new Date(b['Date'] || b['Submitted At'] || 0) - new Date(a['Date'] || a['Submitted At'] || 0))
@@ -58,15 +67,10 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
       .slice(0, 50)
   }, [leads, cutoff])
 
-  // Recent communication events (emails + texts received)
   const commEvents = useMemo(() => {
-    return getRecentCommEvents(
-      ['email_received', 'text_received'],
-      cutoff
-    ).slice(0, 20)
+    return getRecentCommEvents(['email_received', 'text_received'], cutoff).slice(0, 20)
   }, [cutoff])
 
-  // Merge leads + comm events into a single sorted feed
   const feedItems = useMemo(() => {
     const leadItems = filteredLeads.map((l) => ({
       _kind: 'lead',
@@ -77,7 +81,6 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
       _kind: 'comm',
       _time: new Date(e.timestamp || 0).getTime(),
       event: e,
-      // Find matching lead
       lead: leads.find((l) => String(l.rowNumber) === String(e.leadRowNumber)) || null,
     }))
     return [...leadItems, ...commItems]
@@ -95,25 +98,66 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
     )
   }, [leads, now])
 
+  // Unread = never viewed in inbox
+  const unreadLeadIds = useMemo(() => {
+    return new Set(
+      filteredLeads
+        .filter(l => !viewed.has(String(l.rowNumber)))
+        .map(l => l.rowNumber)
+    )
+  }, [filteredLeads, viewed])
+
+  const unreadCount = unreadLeadIds.size
+
+  const handleSelect = useCallback((lead) => {
+    // Mark as viewed
+    setViewed(prev => {
+      const next = new Set(prev)
+      next.add(String(lead.rowNumber))
+      saveViewed(next)
+      return next
+    })
+    onSelect(lead)
+  }, [onSelect])
+
+  const markAllRead = useCallback(() => {
+    setViewed(prev => {
+      const next = new Set(prev)
+      filteredLeads.forEach(l => next.add(String(l.rowNumber)))
+      saveViewed(next)
+      return next
+    })
+  }, [filteredLeads])
+
   return (
     <div className="flex flex-col h-full bg-white border-r border-surface-border">
-      {/* Filters */}
+      {/* Filters + Mark all read */}
       <div className="px-4 py-3 border-b border-surface-border flex-shrink-0">
-        <div className="flex gap-1">
-          {TIME_FILTERS.map((f) => (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1">
+            {TIME_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={[
+                  'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+                  filter === f.id
+                    ? 'bg-navy-800 text-white'
+                    : 'text-ink-secondary hover:bg-surface-secondary',
+                ].join(' ')}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {unreadCount > 0 && (
             <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={[
-                'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-                filter === f.id
-                  ? 'bg-navy-800 text-white'
-                  : 'text-ink-secondary hover:bg-surface-secondary',
-              ].join(' ')}
+              onClick={markAllRead}
+              className="text-[10px] font-semibold text-ink-muted hover:text-ink transition-colors whitespace-nowrap"
             >
-              {f.label}
+              Mark all read ({unreadCount})
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -139,13 +183,15 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
         ) : (
           feedItems.map((item, idx) => {
             if (item._kind === 'lead') {
+              const isUnread = unreadLeadIds.has(item.lead.rowNumber)
               return (
                 <ActivityItem
                   key={`lead-${item.lead.rowNumber}`}
                   lead={item.lead}
                   isSelected={item.lead.rowNumber === selectedId}
                   isNew={recentIds.has(item.lead.rowNumber)}
-                  onClick={() => onSelect(item.lead)}
+                  isUnread={isUnread}
+                  onClick={() => handleSelect(item.lead)}
                 />
               )
             }
@@ -156,13 +202,12 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
             return (
               <button
                 key={`comm-${event.id || idx}`}
-                onClick={() => lead && onSelect(lead)}
+                onClick={() => lead && handleSelect(lead)}
                 className={[
                   'w-full flex items-start gap-3 px-4 py-3 text-left border-b border-surface-border transition-colors hover:bg-sand/20',
                   lead && lead.rowNumber === selectedId ? 'bg-sand/40 border-l-2 border-l-blue-400 pl-[14px]' : '',
                 ].join(' ')}
               >
-                {/* Colored icon dot */}
                 <div
                   className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center"
                   style={{ backgroundColor: cfg.bg, border: `1.5px solid ${cfg.color}30` }}
@@ -203,8 +248,13 @@ export default function ActivityFeed({ leads, loading, selectedId, onSelect }) {
         )}
       </div>
 
-      <div className="px-4 py-2 border-t border-surface-border bg-surface-secondary flex-shrink-0">
+      <div className="px-4 py-2 border-t border-surface-border bg-surface-secondary flex-shrink-0 flex items-center justify-between">
         <p className="text-xs text-ink-muted">{feedItems.length} items</p>
+        {unreadCount > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold/20 text-amber-800">
+            {unreadCount} unread
+          </span>
+        )}
       </div>
     </div>
   )

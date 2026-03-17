@@ -23,7 +23,8 @@ const DEFAULT_FILTERS = {
 // ─── Smart list definitions ────────────────────────────────────────────────
 const SMART_LISTS = [
   { key: 'new',        label: 'New Leads',           icon: '⚡', color: '#C6A76F' },
-  { key: 'noContact',  label: 'No Contact 3+ Days',  icon: '🔔', color: '#EF4444' },
+  { key: 'attention',  label: 'Needs Attention',     icon: '🚨', color: '#EF4444' },
+  { key: 'noContact',  label: 'No Contact 3+ Days',  icon: '🔔', color: '#DC2626' },
   { key: 'hot',        label: 'Hot Leads',           icon: '🔥', color: '#F97316' },
   { key: 'closing',    label: 'Closing This Month',  icon: '🏆', color: '#22C55E' },
   { key: 'followUp',   label: 'Follow Up Today',     icon: '📋', color: '#3B82F6' },
@@ -41,6 +42,41 @@ function getNoContactIds(leads) {
         const last = events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
         return new Date(last.timestamp).getTime() < cutoff
       } catch { return true }
+    })
+    .map(l => l.rowNumber)
+}
+
+function getAttentionIds(leads) {
+  const cutoff24h = Date.now() - 24 * 60 * 60 * 1000
+  return leads
+    .filter(l => {
+      if (l['Status'] !== 'New') return false
+      const sub = l['Submitted At'] || l['Date'] || ''
+      if (!sub) return false
+      return new Date(sub).getTime() < cutoff24h
+    })
+    .map(l => l.rowNumber)
+}
+
+function getClosingThisMonthIds(leads) {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  const monthEnd   = Date.now()
+  return leads
+    .filter(l => l['Status'] === 'Closed')
+    .filter(l => {
+      // First check for a status_change event to Closed within current month
+      try {
+        const events = JSON.parse(localStorage.getItem(`crm_timeline_${l.rowNumber}`) || '[]')
+        const closedEvent = events.find(e =>
+          e.type === 'status_change' && e.to === 'Closed' &&
+          new Date(e.timestamp).getTime() >= monthStart
+        )
+        if (closedEvent) return true
+      } catch {}
+      // Fallback: submission date in current month
+      const sub = new Date(l['Submitted At'] || l['Date'] || '')
+      return sub.getMonth() === now.getMonth() && sub.getFullYear() === now.getFullYear()
     })
     .map(l => l.rowNumber)
 }
@@ -71,9 +107,10 @@ export default function People() {
     const today = todayISO()
     return {
       new:       allLeadsRaw.filter(l => l['Status'] === 'New').length,
+      attention: getAttentionIds(allLeadsRaw).length,
       noContact: getNoContactIds(allLeadsRaw).length,
       hot:       allLeadsRaw.filter(l => l['Status'] === 'Qualified').length,
-      closing:   allLeadsRaw.filter(l => l['Status'] === 'Closed').length,
+      closing:   getClosingThisMonthIds(allLeadsRaw).length,
       followUp:  tasks.filter(t => !t.completed && t.dueDate === today && t.linkedLeadId).length,
       active:    allLeadsRaw.filter(l => l['Status'] !== 'Lost').length,
     }
@@ -94,6 +131,10 @@ export default function People() {
 
     if (key === 'new') {
       setFilters({ ...DEFAULT_FILTERS, statusFilter: ['New'] })
+    } else if (key === 'attention') {
+      const ids = getAttentionIds(allLeadsRaw)
+      setSmartOverrideIds(ids)
+      setFilters(DEFAULT_FILTERS)
     } else if (key === 'noContact') {
       const ids = getNoContactIds(allLeadsRaw)
       setSmartOverrideIds(ids)
@@ -101,7 +142,9 @@ export default function People() {
     } else if (key === 'hot') {
       setFilters({ ...DEFAULT_FILTERS, statusFilter: ['Qualified'] })
     } else if (key === 'closing') {
-      setFilters({ ...DEFAULT_FILTERS, statusFilter: ['Closed'] })
+      const ids = getClosingThisMonthIds(allLeadsRaw)
+      setSmartOverrideIds(ids)
+      setFilters(DEFAULT_FILTERS)
     } else if (key === 'followUp') {
       const today = todayISO()
       const ids = [...new Set(
@@ -237,7 +280,9 @@ export default function People() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-colors flex-shrink-0"
               style={isActive
                 ? { backgroundColor: list.color, borderColor: list.color, color: 'white' }
-                : { backgroundColor: 'white', borderColor: '#E2E8F0', color: '#475569' }
+                : list.key === 'attention' && count > 0
+                  ? { backgroundColor: '#FEF2F2', borderColor: '#EF4444', color: '#DC2626' }
+                  : { backgroundColor: 'white', borderColor: '#E2E8F0', color: '#475569' }
               }
             >
               <span>{list.icon}</span>

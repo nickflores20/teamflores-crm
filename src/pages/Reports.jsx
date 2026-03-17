@@ -15,6 +15,7 @@ import WinLossDonut from '../components/reports/WinLossDonut.jsx'
 import ResponseTimeBar from '../components/reports/ResponseTimeBar.jsx'
 import ConversionFunnel from '../components/reports/ConversionFunnel.jsx'
 import ReportsDataTable from '../components/reports/ReportsDataTable.jsx'
+import SpeedToLeadChart from '../components/reports/SpeedToLeadChart.jsx'
 
 function getDefaultRange() {
   const now = new Date()
@@ -118,8 +119,8 @@ export default function Reports() {
 
   function speedTrend(hours) {
     if (hours === null) return 2
-    if (hours < 1) return 0   // green — excellent
-    if (hours <= 4) return 2  // neutral — good
+    if (hours < 1)  return 0  // green — excellent
+    if (hours <= 4) return 0  // green — good
     return 1                  // red — needs improvement
   }
 
@@ -211,6 +212,10 @@ export default function Reports() {
 
           <ChartCard title="Response Time" subtitle="How quickly leads were first contacted">
             <ResponseTimeBar leads={filteredLeads} />
+          </ChartCard>
+
+          <ChartCard title="Speed to Lead Breakdown" subtitle="Distribution of first contact times">
+            <SpeedToLeadChart leads={filteredLeads} />
           </ChartCard>
 
           <ChartCard title="Monthly Activity" subtitle="Stacked by status — last 12 months">

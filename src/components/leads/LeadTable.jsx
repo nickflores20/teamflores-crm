@@ -56,6 +56,7 @@ export default function LeadTable({
               <SortHeader label="Price"      field="Purchase Price" sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
               <SortHeader label="Date Added" field="Submitted At"   sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
               <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden xl:table-cell whitespace-nowrap">Last Comm</th>
+              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden xl:table-cell whitespace-nowrap">Score</th>
               <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden 2xl:table-cell">Source</th>
               <th className="py-3 pr-4 w-10" />
             </tr>
@@ -64,13 +65,13 @@ export default function LeadTable({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={11}>
+                <td colSpan={12}>
                   <SkeletonTable rows={8} />
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-16 text-center text-ink-muted text-sm">
+                <td colSpan={12} className="py-16 text-center text-ink-muted text-sm">
                   No leads match your filters.
                 </td>
               </tr>
