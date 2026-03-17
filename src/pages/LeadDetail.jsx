@@ -35,49 +35,50 @@ function addDays(n) {
 }
 
 // ─── AI Smart Summary Banner ───────────────────────────────────────────────
-const CACHE_KEY = (rowNumber) => `tf_ai_summary_${rowNumber}`
-const API_KEY_STORAGE = 'tf_claude_api_key'
+const CACHE_KEY  = (rowNumber) => `tf_ai_summary_${rowNumber}`
+const RATE_KEY   = (rowNumber) => `tf_summary_time_${rowNumber}`
+const RATE_LIMIT_MS = 10 * 60 * 1000 // 10 minutes
 
 function AISummaryBanner({ lead }) {
   const [cached] = useState(() => {
     try { return JSON.parse(localStorage.getItem(CACHE_KEY(lead.rowNumber)) || 'null') } catch { return null }
   })
-  const [summary,   setSummary]   = useState(cached)
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState(null)
+  const [summary,    setSummary]    = useState(cached)
+  const [loading,    setLoading]    = useState(false)
+  const [error,      setError]      = useState(null)
   const [showBanner, setShowBanner] = useState(!!cached)
-  const [apiKeyInput, setApiKeyInput] = useState('')
-  const [needsKey,  setNeedsKey]  = useState(false)
+  const [, forceUpdate] = useState(0)
 
-  const generate = async (key) => {
+  const getRateLimitRemaining = () => {
+    try {
+      const last = parseInt(localStorage.getItem(RATE_KEY(lead.rowNumber)) || '0', 10)
+      const elapsed = Date.now() - last
+      if (elapsed < RATE_LIMIT_MS) return Math.ceil((RATE_LIMIT_MS - elapsed) / 60000)
+    } catch { /* ignore */ }
+    return 0
+  }
+
+  const generate = async () => {
+    const remaining = getRateLimitRemaining()
+    if (remaining > 0) return
+
     setLoading(true)
     setError(null)
     try {
       const events = JSON.parse(localStorage.getItem(`crm_timeline_${lead.rowNumber}`) || '[]')
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/summarize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `You are a mortgage CRM assistant for Nick Flores at Sunnyhill Financial. Summarize this lead's profile and communication history in 3-4 sentences. Include their loan type, property goals, financial profile, last contact, and recommended next step.\n\nLead data: ${JSON.stringify(lead)}\nTimeline events: ${JSON.stringify(events)}\n\nBe specific and actionable. Write as if briefing Nick before a call.`,
-          }],
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadData: lead, timelineEvents: events }),
       })
       const data = await res.json()
-      if (data.error) throw new Error(data.error.message || 'API error')
-      const text = data.content?.[0]?.text || 'Could not generate summary.'
-      const result = { text, generatedAt: new Date().toISOString() }
+      if (!res.ok) throw new Error(data.error || 'API error')
+      const result = { text: data.summary, generatedAt: new Date().toISOString() }
       setSummary(result)
       setShowBanner(true)
       localStorage.setItem(CACHE_KEY(lead.rowNumber), JSON.stringify(result))
+      localStorage.setItem(RATE_KEY(lead.rowNumber), String(Date.now()))
+      forceUpdate(n => n + 1)
     } catch (e) {
       setError(e.message || 'Failed to generate summary.')
     } finally {
@@ -86,24 +87,13 @@ function AISummaryBanner({ lead }) {
   }
 
   const handleClick = () => {
-    const key = localStorage.getItem(API_KEY_STORAGE)
-    if (!key) { setNeedsKey(true); setShowBanner(true); return }
-    generate(key)
     setShowBanner(true)
-  }
-
-  const handleKeySubmit = (e) => {
-    e.preventDefault()
-    if (!apiKeyInput.trim()) return
-    localStorage.setItem(API_KEY_STORAGE, apiKeyInput.trim())
-    setNeedsKey(false)
-    generate(apiKeyInput.trim())
+    generate()
   }
 
   const handleRefresh = () => {
-    const key = localStorage.getItem(API_KEY_STORAGE)
-    if (!key) { setNeedsKey(true); return }
-    generate(key)
+    generate()
+    forceUpdate(n => n + 1)
   }
 
   const timeAgo = (iso) => {
@@ -115,6 +105,8 @@ function AISummaryBanner({ lead }) {
     if (hrs < 24) return `${hrs}h ago`
     return `${Math.floor(hrs / 24)}d ago`
   }
+
+  const rateLimitMins = getRateLimitRemaining()
 
   return (
     <div className="px-4 lg:px-6 py-2 flex-shrink-0">
@@ -157,13 +149,16 @@ function AISummaryBanner({ lead }) {
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleRefresh}
-                  disabled={loading}
-                  className="p-1 rounded-md transition-colors hover:bg-amber-100 disabled:opacity-40"
-                  title="Regenerate"
+                  disabled={loading || rateLimitMins > 0}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md transition-colors hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={rateLimitMins > 0 ? `Refresh available in ${rateLimitMins}m` : 'Regenerate'}
                 >
                   <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="#C6A76F" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                   </svg>
+                  {rateLimitMins > 0 && (
+                    <span className="text-[10px]" style={{ color: '#C6A76F' }}>in {rateLimitMins}m</span>
+                  )}
                 </button>
                 <button
                   onClick={() => setShowBanner(false)}
@@ -178,29 +173,7 @@ function AISummaryBanner({ lead }) {
 
             {/* Content */}
             <div className="px-4 py-3">
-              {needsKey ? (
-                <form onSubmit={handleKeySubmit} className="flex flex-col gap-2">
-                  <p className="text-xs text-ink-secondary">Enter your Claude API key to enable AI summaries. It will be saved locally.</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={apiKeyInput}
-                      onChange={e => setApiKeyInput(e.target.value)}
-                      placeholder="sk-ant-..."
-                      className="flex-1 text-xs border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-                      style={{ borderColor: '#C6A76F50' }}
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="px-3 py-2 rounded-lg text-xs font-semibold text-white"
-                      style={{ backgroundColor: '#C6A76F' }}
-                    >
-                      Save & Generate
-                    </button>
-                  </div>
-                </form>
-              ) : loading ? (
+              {loading ? (
                 <div className="flex items-center gap-2 py-1">
                   <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="#C6A76F" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
