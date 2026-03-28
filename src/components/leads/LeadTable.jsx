@@ -48,30 +48,29 @@ export default function LeadTable({
               <th className="pl-4 py-3 w-10">
                 <Checkbox checked={allSelected} indeterminate={someSelected} onChange={onSelectAll} />
               </th>
-              <SortHeader label="Name"       field="First Name"   sortField={sortField} sortDir={sortDir} onSort={onSort} />
+              <SortHeader label="Name"         field="First Name"    sortField={sortField} sortDir={sortDir} onSort={onSort} />
+              <th className="py-3 pr-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider whitespace-nowrap">Stage</th>
+              <th className="py-3 pr-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">Source</th>
+              <th className="py-3 pr-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden md:table-cell whitespace-nowrap">State</th>
+              <th className="py-3 pr-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden xl:table-cell whitespace-nowrap">Type</th>
+              <SortHeader label="Amount"       field="Purchase Price" sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
+              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">Last Contact</th>
               <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden md:table-cell whitespace-nowrap">Phone</th>
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden lg:table-cell">Email</th>
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">Status</th>
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">Loan Type</th>
-              <SortHeader label="Price"      field="Purchase Price" sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
-              <SortHeader label="Date Added" field="Submitted At"   sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden xl:table-cell whitespace-nowrap">Last Comm</th>
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden xl:table-cell whitespace-nowrap">Score</th>
-              <th className="py-3 pr-4 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider hidden 2xl:table-cell">Source</th>
-              <th className="py-3 pr-4 w-10" />
+              <SortHeader label="Created"      field="Submitted At"   sortField={sortField} sortDir={sortDir} onSort={onSort} className="hidden xl:table-cell" />
+              <th className="py-3 pr-3 w-32 hidden md:table-cell" />
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12}>
+                <td colSpan={11}>
                   <SkeletonTable rows={8} />
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-16 text-center text-ink-muted text-sm">
+                <td colSpan={11} className="py-16 text-center text-ink-muted text-sm">
                   No leads match your filters.
                 </td>
               </tr>

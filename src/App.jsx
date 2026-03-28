@@ -7,6 +7,7 @@ import QuickAddLeadModal from './components/leads/QuickAddLeadModal.jsx'
 
 // Pages
 import Login from './pages/Login.jsx'
+import Dashboard from './pages/Dashboard.jsx'
 import Inbox from './pages/Inbox.jsx'
 import People from './pages/People.jsx'
 import LeadDetail from './pages/LeadDetail.jsx'
@@ -29,6 +30,7 @@ function ProtectedApp() {
     <AppShell onQuickAdd={() => setQuickAddOpen(true)}>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/people" element={<People />} />
           <Route path="/people/:id" element={<LeadDetail />} />
@@ -36,7 +38,7 @@ function ProtectedApp() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/inbox" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AnimatePresence>
       <QuickAddLeadModal isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />

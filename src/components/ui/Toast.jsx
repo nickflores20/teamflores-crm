@@ -5,9 +5,10 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 // Left border color + icon per type
 const TYPE_STYLES = {
-  success: { border: 'border-l-green-500', icon: 'text-green-500', bg: 'bg-green-50' },
-  error:   { border: 'border-l-red-500',   icon: 'text-red-500',   bg: 'bg-red-50'   },
-  info:    { border: 'border-l-blue-500',  icon: 'text-blue-500',  bg: 'bg-blue-50'  },
+  success: { border: 'border-l-green-500',  icon: 'text-green-500',  bg: 'bg-green-50'  },
+  error:   { border: 'border-l-red-500',    icon: 'text-red-500',    bg: 'bg-red-50'    },
+  info:    { border: 'border-l-blue-500',   icon: 'text-blue-500',   bg: 'bg-blue-50'   },
+  warning: { border: 'border-l-orange-500', icon: 'text-orange-500', bg: 'bg-orange-50' },
 }
 
 const ICONS = {
@@ -39,9 +40,9 @@ function ToastItem({ toast, onDismiss }) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: 80, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 80, scale: 0.95 }}
+      initial={{ opacity: 0, y: 16, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 16, scale: 0.95 }}
       transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className={`flex items-center gap-3 min-w-[280px] max-w-sm pr-4 pl-4 py-3 bg-white border border-surface-border border-l-4 ${s.border} rounded-lg shadow-card-md`}
     >
@@ -63,7 +64,7 @@ export function ToastContainer() {
   const { toasts, removeToast } = useToast()
 
   return createPortal(
-    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-6 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
       <AnimatePresence mode="popLayout">
         {toasts.map(t => (
           <div key={t.id} className="pointer-events-auto">

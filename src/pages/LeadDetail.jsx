@@ -8,6 +8,7 @@ import { useTimeline } from '../hooks/useTimeline.js'
 import ContactCard from '../components/detail/ContactCard.jsx'
 import ActivityTimeline from '../components/detail/ActivityTimeline.jsx'
 import FullDetailsPanel from '../components/detail/FullDetailsPanel.jsx'
+import StatusSelect from '../components/leads/StatusSelect.jsx'
 import { getFullName } from '../api/mockData.js'
 
 // ─── Action plan templates ─────────────────────────────────────────────────
@@ -277,6 +278,77 @@ export default function LeadDetail() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
         <span className="text-sm text-ink font-medium truncate">{getFullName(lead)}</span>
+      </div>
+
+      {/* ── FUB-style Lead Header ────────────────────────────────────────── */}
+      <div className="px-4 lg:px-6 py-3 bg-white border-b border-surface-border flex-shrink-0">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          {/* Name + badges */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1 className="text-xl font-serif font-bold truncate" style={{ color: '#1A3E61' }}>
+              {getFullName(lead)}
+            </h1>
+            {/* Stage dropdown */}
+            <div className="relative" onPointerDown={e => e.stopPropagation()}>
+              <StatusSelect status={lead['Status']} onChange={handleStatusChange} />
+            </div>
+            {lead['How Found'] && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border hidden sm:inline-flex"
+                style={{ color: '#1A3E61', borderColor: '#B0C4D8', backgroundColor: '#EEF3F8' }}>
+                {lead['How Found']}
+              </span>
+            )}
+            {lead['State'] && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full hidden sm:inline-flex"
+                style={{ backgroundColor: '#F0E6D2', color: '#8A6A2A', border: '1px solid #E8D5A3' }}>
+                {lead['State']}
+              </span>
+            )}
+          </div>
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => { addToast({ type: 'info', message: 'Use the Text tab below to compose a text' }) }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+              style={{ borderColor: '#E2E8F0', color: '#475569', backgroundColor: 'white' }}
+            >📱 Text</button>
+            <button
+              onClick={() => { addToast({ type: 'info', message: 'Use the Email tab below to compose an email' }) }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+              style={{ borderColor: '#E2E8F0', color: '#475569', backgroundColor: 'white' }}
+            >✉️ Email</button>
+            <button
+              onClick={() => {
+                addEvent({ type: 'call', body: 'Call logged from header action', to: lead['Phone'], outcome: 'Spoke with Lead', duration: null })
+                addToast({ type: 'success', message: `Call logged for ${getFullName(lead)}` })
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700"
+              style={{ borderColor: '#E2E8F0', color: '#475569', backgroundColor: 'white' }}
+            >📞 Call</button>
+            <button
+              onClick={() => { addToast({ type: 'info', message: 'Use the Note tab below to add a note' }) }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-slate-50"
+              style={{ borderColor: '#E2E8F0', color: '#475569', backgroundColor: 'white' }}
+            >📝 Note</button>
+            <button
+              onClick={() => {
+                addTask({ title: `Follow up — ${getFullName(lead)}`, dueDate: new Date().toISOString().slice(0,10), priority: 'Medium', linkedLeadId: lead.rowNumber })
+                addToast({ type: 'success', message: 'Task created' })
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:bg-slate-50"
+              style={{ borderColor: '#E2E8F0', color: '#475569', backgroundColor: 'white' }}
+            >✅ Task</button>
+            <button
+              onClick={() => {
+                const url = `https://sunnyhillfinancial.pos.yoursonar.com/?name=${encodeURIComponent(getFullName(lead))}&phone=${encodeURIComponent(lead['Phone'] || '')}&email=${encodeURIComponent(lead['Email'] || '')}`
+                navigator.clipboard.writeText(url).catch(() => {})
+                addToast({ type: 'success', message: '🔗 Pre-Approval link copied to clipboard!' })
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: '#C6A76F' }}
+            >🔗 Pre-Approval Link</button>
+          </div>
+        </div>
       </div>
 
       {/* AI Smart Summary */}

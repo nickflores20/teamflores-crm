@@ -10,6 +10,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh.js'
 import GlobalSearch from '../global/GlobalSearch.jsx'
 
 const PAGE_TITLES = {
+  '/dashboard': 'Dashboard',
   '/inbox':    'Inbox',
   '/people':   'People',
   '/deals':    'Pipeline',
