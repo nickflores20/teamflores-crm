@@ -3,6 +3,16 @@ import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { APPS_SCRIPT_URL, USE_MOCK } from '../api/apiConfig.js'
+import { getAutomationSettings, saveAutomationSettings } from '../services/coldLeadEngine.js'
+import { SMS_TEMPLATES, EMAIL_TEMPLATES, fillTemplate } from '../services/templateEngine.js'
+
+const SAMPLE_LEAD = {
+  'First Name': 'Carlos', 'Last Name': 'Rivera', 'State': 'NV',
+  'Loan Type': 'Home Purchase', 'How Found': 'LeadPops NV Purchase',
+  'Purchase Price': '425000', 'Down Payment': '85000',
+  'Credit Score': '740-759', 'Rate': '6.75%', 'APR': '6.89%',
+  'Loan Balance': '310000', 'Property Value': '450000',
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -88,10 +98,10 @@ export default function Settings() {
   // Profile
   const [profile, setProfile] = useLocalSetting('tf_profile', {
     firstName: 'Nick',
-    lastName: 'Flores',
+    lastName: 'Flores Sr.',
     email: 'nick@sunnyhillfinancial.com',
-    phone: '(555) 800-1234',
-    title: 'Loan Officer',
+    phone: '702-497-6370',
+    title: 'Division Director',
     company: 'Sunnyhill Financial',
     bio: '',
     photo: null,
@@ -149,6 +159,34 @@ export default function Settings() {
     setPwError('')
     setPwCurrent(''); setPwNew(''); setPwConfirm('')
     addToast({ type: 'success', message: 'Password updated' })
+  }
+
+  // Automation settings
+  const [automation, setAutomation] = useLocalSetting('tf_automation_settings', getAutomationSettings())
+  const saveAutomation = (updates) => {
+    const updated = { ...automation, ...updates }
+    setAutomation(updated)
+    saveAutomationSettings(updated)
+    addToast({ type: 'success', message: 'Automation settings saved' })
+  }
+
+  // Integrations
+  const [calendlyUrl, setCalendlyUrl]   = useLocalSetting('tf_calendly_url', 'calendly.com/floresnick')
+  const [sonarUrl, setSonarUrl]         = useLocalSetting('tf_sonar_url', 'https://sunnyhillfinancial.pos.yoursonar.com/?originator=nick@sunnyhillfinancial.com')
+
+  // Templates
+  const [smsTemplates, setSmsTemplates] = useLocalSetting('tf_sms_templates', SMS_TEMPLATES)
+  const [emailTemplates, setEmailTemplates] = useLocalSetting('tf_email_templates', EMAIL_TEMPLATES)
+  const [editingTemplate, setEditingTemplate] = useState(null) // { type: 'sms'|'email', id }
+  const [previewTpl, setPreviewTpl] = useState(null)
+
+  const updateSmsTemplate = (id, body) => {
+    const updated = smsTemplates.map(t => t.id === id ? { ...t, body } : t)
+    setSmsTemplates(updated)
+  }
+  const updateEmailTemplate = (id, field, value) => {
+    const updated = emailTemplates.map(t => t.id === id ? { ...t, [field]: value } : t)
+    setEmailTemplates(updated)
   }
 
   // Integration
@@ -282,7 +320,8 @@ export default function Settings() {
           <div className="divide-y divide-surface-border">
             <InfoRow label="NMLS Individual"  value="NMLS #422150" />
             <InfoRow label="NMLS Company"     value="NMLS #1850115" />
-            <InfoRow label="Licensed States"  value="CA, TX, FL, AZ" />
+            <InfoRow label="Licensed States"  value="NV, AZ, CA, FL, TX, WA, OR" />
+            <InfoRow label="Direct Line"      value="702-497-6370" />
             <InfoRow label="Company"          value="Sunnyhill Financial" />
           </div>
           <p className="text-[10px] text-ink-muted leading-relaxed">
@@ -474,6 +513,165 @@ export default function Settings() {
             <InfoRow label="Drag & Drop" value="@dnd-kit/core" mono />
           </div>
         </Section>
+
+        {/* ── Automation ── */}
+        <Section title="Automation" icon="⚡">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium text-ink">Cold Threshold</p>
+                <p className="text-xs text-ink-muted mt-0.5">Days without contact before a lead is marked Cold</p>
+              </div>
+              <span className="text-lg font-bold text-gold ml-4">{automation.coldThreshold}d</span>
+            </div>
+            <input
+              type="range" min={1} max={30} value={automation.coldThreshold}
+              onChange={e => saveAutomation({ coldThreshold: Number(e.target.value) })}
+              className="w-full accent-gold"
+            />
+            <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+              <span>1 day</span><span>30 days</span>
+            </div>
+          </div>
+          <ToggleRow
+            label="Auto Cold Sequence"
+            description="Automatically start the cold follow-up sequence when a lead is marked Cold"
+            checked={automation.autoSequence ?? true}
+            onChange={v => saveAutomation({ autoSequence: v })}
+          />
+          <ToggleRow
+            label="Auto-Pause on Reply"
+            description="Pause sequence and alert you immediately when a cold lead replies"
+            checked={automation.autoPauseOnReply ?? true}
+            onChange={v => saveAutomation({ autoPauseOnReply: v })}
+          />
+        </Section>
+
+        {/* ── Integrations ── */}
+        <Section title="Integrations" icon="🔗">
+          <Field label="Calendly URL" value={calendlyUrl} onChange={setCalendlyUrl} placeholder="calendly.com/floresnick" />
+          <Field label="Sonar Pre-Approval URL" value={sonarUrl} onChange={setSonarUrl} placeholder="https://sunnyhillfinancial.pos.yoursonar.com/…" />
+        </Section>
+
+        {/* ── Text Templates ── */}
+        <Section title="Text Message Templates" icon="📱">
+          <p className="text-xs text-ink-muted -mt-1">
+            Variables: <code className="font-mono bg-surface-secondary px-1 rounded">{'{firstName}'}</code>{' '}
+            <code className="font-mono bg-surface-secondary px-1 rounded">{'{state}'}</code>{' '}
+            <code className="font-mono bg-surface-secondary px-1 rounded">{'{purchasePrice}'}</code>{' '}
+            <code className="font-mono bg-surface-secondary px-1 rounded">{'{downPayment}'}</code>{' '}
+            and more.
+          </p>
+          <div className="space-y-3 mt-1">
+            {smsTemplates.map(tpl => (
+              <div key={tpl.id} className="border border-surface-border rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-surface-secondary flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-ink truncate">{tpl.name}</p>
+                    {tpl.state && <span className="text-[10px] text-ink-muted">{tpl.source} · {tpl.state} · {tpl.loanType}</span>}
+                  </div>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => setPreviewTpl({ type: 'sms', tpl, filled: fillTemplate(tpl.body, SAMPLE_LEAD) })}
+                      className="px-2 py-1 text-[10px] font-semibold rounded border border-surface-border text-ink-secondary hover:bg-white transition-colors"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => setEditingTemplate(editingTemplate === tpl.id ? null : tpl.id)}
+                      className="px-2 py-1 text-[10px] font-semibold rounded border border-surface-border text-ink-secondary hover:bg-white transition-colors"
+                    >
+                      {editingTemplate === tpl.id ? 'Done' : 'Edit'}
+                    </button>
+                  </div>
+                </div>
+                {editingTemplate === tpl.id ? (
+                  <textarea
+                    value={tpl.body}
+                    onChange={e => updateSmsTemplate(tpl.id, e.target.value)}
+                    rows={5}
+                    className="w-full px-3 py-2 text-xs font-mono text-ink resize-none focus:outline-none focus:ring-1 focus:ring-gold/30"
+                  />
+                ) : (
+                  <p className="px-3 py-2 text-xs text-ink-secondary leading-relaxed line-clamp-3">{tpl.body}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* ── Email Templates ── */}
+        <Section title="Email Templates" icon="📧">
+          <div className="space-y-3">
+            {emailTemplates.map(tpl => (
+              <div key={tpl.id} className="border border-surface-border rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-surface-secondary flex items-center justify-between">
+                  <p className="text-xs font-semibold text-ink">{tpl.name}</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setPreviewTpl({ type: 'email', tpl, filled: fillTemplate(tpl.body, SAMPLE_LEAD), subject: fillTemplate(tpl.subject, SAMPLE_LEAD) })}
+                      className="px-2 py-1 text-[10px] font-semibold rounded border border-surface-border text-ink-secondary hover:bg-white transition-colors"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => setEditingTemplate(editingTemplate === tpl.id ? null : tpl.id)}
+                      className="px-2 py-1 text-[10px] font-semibold rounded border border-surface-border text-ink-secondary hover:bg-white transition-colors"
+                    >
+                      {editingTemplate === tpl.id ? 'Done' : 'Edit'}
+                    </button>
+                  </div>
+                </div>
+                {editingTemplate === tpl.id ? (
+                  <div className="px-3 py-2 space-y-2">
+                    <input
+                      value={tpl.subject}
+                      onChange={e => updateEmailTemplate(tpl.id, 'subject', e.target.value)}
+                      placeholder="Subject line…"
+                      className="w-full text-xs px-2 py-1.5 border border-surface-border rounded-lg focus:outline-none focus:ring-1 focus:ring-gold/30"
+                    />
+                    <textarea
+                      value={tpl.body}
+                      onChange={e => updateEmailTemplate(tpl.id, 'body', e.target.value)}
+                      rows={5}
+                      className="w-full text-xs font-mono text-ink resize-none focus:outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] text-ink-muted mb-0.5">Subject: {tpl.subject}</p>
+                    <p className="text-xs text-ink-secondary leading-relaxed line-clamp-3">{tpl.body}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* Template preview modal */}
+        {previewTpl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setPreviewTpl(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-3" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-navy-800">Template Preview</h3>
+                <button onClick={() => setPreviewTpl(null)} className="text-ink-muted hover:text-ink">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <p className="text-[10px] text-ink-muted">Filled with sample lead: Carlos Rivera · NV · LeadPops · $425k purchase</p>
+              {previewTpl.subject && (
+                <div className="bg-surface-secondary rounded-xl px-3 py-2">
+                  <p className="text-[10px] text-ink-muted mb-0.5 font-semibold">SUBJECT</p>
+                  <p className="text-sm text-ink">{previewTpl.subject}</p>
+                </div>
+              )}
+              <div className="bg-surface-secondary rounded-xl px-3 py-3">
+                <p className="text-[10px] text-ink-muted mb-0.5 font-semibold">BODY</p>
+                <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{previewTpl.filled}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Danger Zone ── */}
         <div className="bg-white border border-red-200 rounded-xl overflow-hidden shadow-card">

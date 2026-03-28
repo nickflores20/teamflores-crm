@@ -2,9 +2,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Checkbox from '../ui/Checkbox.jsx'
 import Button from '../ui/Button.jsx'
 
-const STATUSES   = ['New', 'Contacted', 'Qualified', 'Closed', 'Lost']
-const LOAN_TYPES = ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo']
-const SOURCES    = ['Google', 'Facebook', 'Instagram', 'Referral', 'Rebel Path', 'Other']
+const STATUSES   = ['New', 'Contacted', 'Active', 'Qualified', 'In Progress', 'Closed Won', 'Cold', 'Dead']
+const LOAN_TYPES = ['Home Purchase', 'Home Refinance', 'VA Loan', 'FHA Loan', 'HELOC/Equity', 'Conv Hybrid', 'Jumbo']
+const SOURCES    = ['LeadPops NV Purchase', 'LeadPops TX Refi', 'Bankrate NV Refi', 'Bankrate TX Purchase', 'Bankrate FL Purchase', 'Bankrate CA Purchase', 'Zillow', 'Realtor Referral', 'Sunnyhill Past Client Referral', 'Google', 'Social Media']
 
 function FilterGroup({ title, options, selected, onChange }) {
   const toggle = (v) => onChange(

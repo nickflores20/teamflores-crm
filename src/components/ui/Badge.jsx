@@ -1,33 +1,43 @@
-const STATUS_STYLES = {
-  New:       'bg-gray-100 text-gray-600 border-gray-200',
-  Contacted: 'bg-blue-50 text-blue-600 border-blue-200',
-  Qualified: 'bg-amber-50 text-amber-700 border-amber-200',
-  Closed:    'bg-green-50 text-green-700 border-green-200',
-  Lost:      'bg-red-50 text-red-600 border-red-200',
-}
-
-const STATUS_DOTS = {
-  New:       'bg-gray-400',
-  Contacted: 'bg-blue-500',
-  Qualified: 'bg-amber-500',
-  Closed:    'bg-green-500',
-  Lost:      'bg-red-500',
+// Stage color definitions for all 8 mortgage CRM stages
+export const STAGE_META = {
+  'New':         { bg: '#EBF3FA', text: '#2E75B6', dot: '#2E75B6', border: '#BDD9F0' },
+  'Contacted':   { bg: '#FDF0E8', text: '#C55A11', dot: '#C55A11', border: '#F5C8A0' },
+  'Active':      { bg: '#E8F5EE', text: '#1E7145', dot: '#1E7145', border: '#A8D8BC' },
+  'Qualified':   { bg: '#F0EBFB', text: '#5E35B1', dot: '#5E35B1', border: '#C8B3F0' },
+  'In Progress': { bg: '#E8EFF6', text: '#1A3E61', dot: '#1A3E61', border: '#B0C4D8' },
+  'Closed Won':  { bg: '#FBF5E8', text: '#8A6A2A', dot: '#C6A76F', border: '#E8D5A8' },
+  'Cold':        { bg: '#F0F0F0', text: '#666666', dot: '#888888', border: '#CCCCCC' },
+  'Dead':        { bg: '#FBEAEA', text: '#C00000', dot: '#C00000', border: '#F0B0B0' },
 }
 
 const SIZES = {
-  xs: 'px-1.5 py-0.5 text-[10px] gap-1',
-  sm: 'px-2 py-0.5 text-xs gap-1',
-  md: 'px-2.5 py-1 text-sm gap-1.5',
+  xs: { fontSize: '10px', padding: '1px 6px', gap: '4px', dotSize: '5px' },
+  sm: { fontSize: '11px', padding: '2px 8px', gap: '5px', dotSize: '6px' },
+  md: { fontSize: '12px', padding: '4px 10px', gap: '6px', dotSize: '7px' },
 }
 
 export default function Badge({ status, size = 'sm', showDot = true, className = '' }) {
-  const style = STATUS_STYLES[status] || 'bg-gray-100 text-gray-600 border-gray-200'
-  const dot   = STATUS_DOTS[status] || 'bg-gray-400'
-  const sz    = SIZES[size] || SIZES.sm
+  const meta = STAGE_META[status] || { bg: '#F0F0F0', text: '#666666', dot: '#999999', border: '#CCCCCC' }
+  const sz   = SIZES[size] || SIZES.sm
 
   return (
-    <span className={`inline-flex items-center font-semibold rounded-full border ${style} ${sz} ${className}`}>
-      {showDot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />}
+    <span
+      className={`inline-flex items-center font-semibold rounded-full border ${className}`}
+      style={{
+        backgroundColor: meta.bg,
+        color: meta.text,
+        borderColor: meta.border,
+        fontSize: sz.fontSize,
+        padding: sz.padding,
+        gap: sz.gap,
+      }}
+    >
+      {showDot && (
+        <span
+          className="rounded-full flex-shrink-0"
+          style={{ width: sz.dotSize, height: sz.dotSize, backgroundColor: meta.dot }}
+        />
+      )}
       {status}
     </span>
   )

@@ -4,7 +4,29 @@ import KanbanColumn from './KanbanColumn.jsx'
 import KanbanCard from './KanbanCard.jsx'
 import { getFullName } from '../../api/mockData.js'
 
-const STATUSES = ['New', 'Contacted', 'Qualified', 'Closed', 'Lost']
+// Mortgage-specific deal pipeline stages (left→right)
+export const DEAL_STAGES = [
+  'Inquiry',
+  'Sonar Sent',
+  'Pre-Approval In Progress',
+  'Pre-Approved',
+  'Under Contract',
+  'In Underwriting',
+  'Clear to Close',
+  'Closed Won',
+]
+
+// Map CRM lead stages to deal pipeline stages
+export const STAGE_TO_DEAL = {
+  'New':         'Inquiry',
+  'Contacted':   'Inquiry',
+  'Active':      'Inquiry',
+  'Qualified':   'Pre-Approved',
+  'In Progress': 'In Underwriting',
+  'Closed Won':  'Closed Won',
+  'Cold':        'Inquiry',
+  'Dead':        null, // excluded from board
+}
 
 export default function KanbanBoard({ leads, onLeadMove }) {
   const [activeId, setActiveId] = useState(null)
@@ -23,16 +45,36 @@ export default function KanbanBoard({ leads, onLeadMove }) {
     if (!over) return
     const lead = leads.find(l => String(l.rowNumber) === String(active.id))
     if (!lead) return
-    const targetStatus = over.id
-    if (STATUSES.includes(targetStatus) && lead['Status'] !== targetStatus) {
-      onLeadMove(lead.rowNumber, targetStatus)
+    // Map deal stage back to CRM stage
+    const dealStage = over.id
+    if (DEAL_STAGES.includes(dealStage)) {
+      // Determine new CRM status from deal stage
+      let newStatus = lead['Status']
+      if (dealStage === 'Inquiry') newStatus = lead['Status'] || 'New'
+      else if (dealStage === 'Sonar Sent') newStatus = 'Contacted'
+      else if (dealStage === 'Pre-Approval In Progress') newStatus = 'Qualified'
+      else if (dealStage === 'Pre-Approved') newStatus = 'Qualified'
+      else if (dealStage === 'Under Contract') newStatus = 'Qualified'
+      else if (dealStage === 'In Underwriting') newStatus = 'In Progress'
+      else if (dealStage === 'Clear to Close') newStatus = 'In Progress'
+      else if (dealStage === 'Closed Won') newStatus = 'Closed Won'
+
+      if (newStatus !== lead['Status']) {
+        onLeadMove(lead.rowNumber, newStatus)
+      }
     }
   }
 
   const handleDragCancel = () => setActiveId(null)
 
-  const byStatus = STATUSES.reduce((acc, s) => {
-    acc[s] = leads.filter(l => l['Status'] === s)
+  // Exclude Dead leads from the board; map others to deal stages
+  const boardLeads = leads.filter(l => l['Status'] !== 'Dead')
+
+  const byStage = DEAL_STAGES.reduce((acc, s) => {
+    acc[s] = boardLeads.filter(l => {
+      const mapped = STAGE_TO_DEAL[l['Status']]
+      return mapped === s
+    })
     return acc
   }, {})
 
@@ -44,11 +86,11 @@ export default function KanbanBoard({ leads, onLeadMove }) {
       onDragCancel={handleDragCancel}
     >
       <div className="flex gap-4 h-full overflow-x-auto kanban-scroll pb-4 px-4 lg:px-6">
-        {STATUSES.map(status => (
+        {DEAL_STAGES.map(stage => (
           <KanbanColumn
-            key={status}
-            status={status}
-            leads={byStatus[status] || []}
+            key={stage}
+            status={stage}
+            leads={byStage[stage] || []}
           />
         ))}
       </div>
